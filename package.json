@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"dev":".venv/bin/python scripts/preview.py"}}

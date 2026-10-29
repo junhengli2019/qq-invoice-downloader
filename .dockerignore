@@ -1,0 +1,6 @@
+.git
+__pycache__
+*.pyc
+.env
+发票下载工具
+tests

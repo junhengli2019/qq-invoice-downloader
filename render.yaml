@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: invoice-pocket
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ACCESS_CODE
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"

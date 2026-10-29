@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">
+<title>票夹 · 邮箱发票下载</title>
+<meta name="description" content="从 QQ、163 邮箱整理发票 PDF，选择后打包下载。">
+<link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="nav"><a class="logo" href="/" aria-label="票夹首页"><span class="logo-icon">票</span>票夹<span class="logo-en">INVOICE DESK</span></a><div class="nav-actions"><span class="nav-badge"><i></i>邮箱发票整理工具</span><button type="button" class="text-button" id="logout-button" hidden>退出并清除</button></div></header>
+<main>
+<section class="hero"><div><p class="eyebrow">少一点翻找，多一点有序</p><h1>发票归档，<br><span>从邮箱到你的文件夹。</span></h1><p class="intro">选邮箱、定日期、下载 PDF。把散落在邮件里的发票，整理成一个可带走的压缩包。</p><div class="hero-tags"><span>QQ 邮箱</span><span>网易 163</span><span>电脑 / 手机均可使用</span></div></div><div class="paper-stack" aria-hidden="true"><div class="paper back"></div><div class="paper front"><div class="paper-head"><span>电子发票</span><span class="pdf-label">PDF</span></div><div class="paper-line long"></div><div class="paper-line"></div><div class="paper-line short"></div><div class="paper-total">收集完成 <span>✓</span></div><div class="paper-foot">你的文件，由你下载保存</div></div><span class="stack-caption">告别一封一封找附件</span></div></section>
+<section class="panel access-panel" id="access-panel" aria-labelledby="access-title"><div><p class="eyebrow">PRIVATE WORKSPACE</p><h2 id="access-title">先进入你的私人工作台</h2><p>输入网站访问口令后，再连接邮箱。访问口令与邮箱授权码不同。</p></div><form id="access-form"><label for="access-code">网站访问口令</label><div class="access-input"><input id="access-code" type="password" autocomplete="off" placeholder="请输入部署时设置的访问口令" required><button class="primary compact" type="submit" id="login-button">进入工作台 →</button></div><div class="notice" id="access-status" role="status" hidden></div></form></section>
+<section class="first-use" aria-label="第一次使用指南"><strong>第一次使用？跟着这 3 步走</strong><ol><li><b>进入工作台</b><span>网站口令由部署者设置，不是邮箱密码。</span></li><li><b>准备邮箱授权码</b><span>在邮箱网页版开启 IMAP 服务，再生成专用授权码。</span></li><li><b>检索并下载</b><span>先试最近 7 天，勾选 PDF 后下载 ZIP，解压即可查看。</span></li></ol></section>
+<div class="workspace" id="workspace" hidden>
+<section class="panel connect-panel" aria-labelledby="form-title"><div class="section-heading"><span class="step">01</span><div><h2 id="form-title">连接邮箱</h2><p>只读扫描收件箱，不修改或删除邮件</p></div></div>
+<form id="search-form">
+<fieldset class="provider-options"><legend>选择邮箱服务</legend><label class="provider selected"><input type="radio" name="provider" value="qq" checked><span class="provider-icon qq">Q</span><span><strong>QQ 邮箱</strong><small>QQ / Foxmail</small></span><span class="radio-mark"></span></label><label class="provider"><input type="radio" name="provider" value="163"><span class="provider-icon netease">163</span><span><strong>网易邮箱</strong><small>@163.com</small></span><span class="radio-mark"></span></label></fieldset>
+<div class="field"><label for="email">邮箱地址</label><input id="email" name="email" type="email" autocomplete="username" placeholder="你的邮箱@qq.com" maxlength="254" required></div>
+<div class="field"><div class="label-row"><label for="auth-code">IMAP 授权码</label><button type="button" class="text-button" id="help-toggle" aria-controls="auth-help" aria-expanded="false">如何获取？ ↗</button></div><div class="password-wrap"><input id="auth-code" name="auth_code" type="password" autocomplete="off" placeholder="不是邮箱登录密码" maxlength="128" required><button type="button" id="show-code" class="show-code" aria-label="显示授权码">显示</button></div><p class="field-hint">仅在本次连接时使用，不写入配置或日志。</p></div>
+<div id="auth-help" class="help-box" hidden><strong id="help-title">QQ 邮箱授权码</strong><p id="help-copy">在 QQ 邮箱网页版设置中找到 POP3/IMAP 服务，开启 IMAP，并按官方页面提示生成授权码。不要填写 QQ 登录密码。</p><a id="help-link" href="https://mail.qq.com/" target="_blank" rel="noopener noreferrer">前往邮箱官网 ↗</a></div>
+<div class="field"><label for="keyword">邮件关键词</label><input id="keyword" name="keyword" type="text" value="发票" maxlength="40" required><p class="field-hint">匹配邮件主题、发件人或正文，默认查找“发票”。</p></div>
+<div class="quick-dates" aria-label="快捷日期"><span>快捷选择</span><button type="button" data-days="7">最近 7 天</button><button type="button" data-days="30">最近 30 天</button><button type="button" data-days="month">本月</button></div><div class="date-row"><div class="field"><label for="start">开始日期</label><input id="start" name="start" type="date" required></div><div class="field"><label for="end">结束日期</label><input id="end" name="end" type="date" required></div></div>
+<p class="field-hint date-hint">包含起止日期当天 · 最长 366 天 · 最多扫描 300 封</p>
+<label class="consent"><input type="checkbox" id="consent" required><span>我同意将邮箱地址和授权码提交至本站服务器，用于本次只读检索。发票临时保存在服务器内存，15 分钟后失效。</span></label>
+<button class="primary" id="search-button" type="submit"><span id="search-label">检索发票</span><span aria-hidden="true">→</span></button>
+<div class="notice" id="form-status" role="status" aria-live="polite" hidden></div>
+</form>
+</section>
+<section class="panel result-panel" aria-labelledby="result-title"><div class="section-heading"><span class="step">02</span><div><h2 id="result-title">选择并下载</h2><p id="result-subtitle">检索完成后，在这里选择需要的发票</p></div><span class="count-badge" id="file-count">0 份</span></div>
+<div id="empty-state" class="empty-state"><div class="empty-icon" aria-hidden="true"><span>↓</span></div><h3>你的发票，会整齐地出现在这里</h3><p>完成邮箱设置，开始第一次检索。<br>支持 PDF 附件，下载为一个 ZIP 文件。</p><div class="empty-steps"><span>连接邮箱</span><b>→</b><span>筛选附件</span><b>→</b><span>保存本地</span></div></div>
+<div id="loading-state" class="empty-state" hidden><span class="spinner" aria-hidden="true"></span><h3>正在查找发票附件</h3><p>邮件较多时可能需要一两分钟。<br>请保持页面打开，勿重复提交。</p></div>
+<div id="results" hidden><div class="results-summary" id="results-summary"></div><div class="notice warning" id="result-warning" hidden></div><div class="selection-bar"><label><input type="checkbox" id="select-all">全选</label><span id="selection-count">已选 0 份</span></div><div id="file-list" class="file-list"></div><div class="download-footer"><div><strong id="selected-size">0 B</strong><span id="expiry-text">结果将在 15 分钟后失效</span></div><button type="button" class="primary compact" id="download-button" disabled>下载 ZIP ↓</button></div><button type="button" class="text-button clear-button" id="clear-button">清除本次临时文件</button></div>
+<div class="scope-note"><span class="info-icon">i</span><p><strong>本次支持范围</strong><br>只扫描 INBOX 中匹配所填关键词的邮件，提取 PDF 附件。正文中的网页下载链接、OFD、XML、ZIP 附件暂不自动处理，请回原邮件查看。</p></div>
+</section>
+</div>
+<section class="faq" aria-label="常见问题"><h2>遇到问题，先看这里</h2><details><summary>网站访问口令和邮箱授权码有什么区别？</summary><p>网站访问口令是这个网站的门锁，请向部署者获取。邮箱授权码由 QQ 或 163 邮箱生成，只用于本次连接邮箱。两者都不要填成你的邮箱登录密码。</p></details><details><summary>显示“认证被拒绝”，怎么办？</summary><p>先检查所选邮箱与地址是否一致，再确认已在邮箱网页版开启 IMAP 服务。复制新生成的授权码，注意不要带空格。163 若提示客户端登录异常，请先到邮箱网页确认安全提示，再回来重试。</p></details><details><summary>为什么没找到发票？</summary><p>先扩大日期范围，或把关键词改成邮件主题里的商家名称。日期指邮件收件日期，不是开票日期。本版只扫描收件箱中的 PDF 附件；只有“查看发票”网页链接、OFD 或 ZIP 附件的邮件，需要回邮箱处理。邮件超过 300 封时，请缩小日期范围分批下载。</p></details><details><summary>手机下载后，到哪里找文件？</summary><p>先打开浏览器的“下载”列表，再在系统“文件”或“文件管理”中查找 ZIP 压缩包。点开压缩包解压，就能看到勾选的 PDF。下载后可点“清除本次临时文件”立即清理网站中的结果。</p></details></section>
+<section class="trust-row"><div><span>↳</span><p><strong>只读，不动原邮件</strong><small>不发送邮件，不删除附件，不修改已读状态</small></p></div><div><span>◷</span><p><strong>临时处理，及时清理</strong><small>无需注册；结果到期失效，也可手动清除</small></p></div><div><span>↓</span><p><strong>真正下载到你的设备</strong><small>ZIP 保存位置由浏览器决定，手机可存至文件</small></p></div></section>
+<footer><span>票夹 · 把琐碎留给工具</span><span>授权码是敏感凭证，请仅在你信任的部署上使用。</span></footer>
+</main>
+</body></html>
