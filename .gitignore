@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.DS_Store
+downloads/
+需要手动下载的发票链接.txt
+.pytest_cache/
