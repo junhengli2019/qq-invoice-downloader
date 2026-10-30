@@ -29,7 +29,8 @@ if os.environ.get('RENDER'):
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 STATIC = Path(__file__).parent / 'static'
 TTL = 1800
-MAX_JOBS = 3  # <=150 MiB retained PDFs, bounded scanning overhead on 512 MiB instance
+MAX_JOBS = 3  # Real jobs: <=150 MiB retained PDFs on a 512 MiB instance
+MAX_DEMO_JOBS = 3  # Separate tiny sample pool; never consumes real-job capacity
 LOCK = threading.RLock()
 JOBS = {}
 ATTEMPTS = defaultdict(deque)
@@ -151,8 +152,13 @@ def new_job(demo=False):
             return None, fail('操作较频繁，请 10 分钟后再试。', 429)
         if not demo and ACTIVE_SCANS >= 2:
             return None, fail('当前已有查找任务进行中，请稍后再试。', 503)
-        if len(JOBS) >= MAX_JOBS:
-            return None, fail('当前使用人数较多，请稍后再试。已有结果会在 30 分钟后清除。', 503)
+        # Count each pool independently; anonymous demos must not block real scans.
+        # Never evict another browser's running job or retained invoice results.
+        limit = MAX_DEMO_JOBS if demo else MAX_JOBS
+        if sum(j['demo'] == demo for j in JOBS.values()) >= limit:
+            message = ('当前示例体验人数较多，请稍后再试；仍可使用真实邮箱查找。'
+                       if demo else '当前使用人数较多，请稍后再试。已有结果会在 30 分钟后清除。')
+            return None, fail(message, 503)
         # Bound unauthenticated rate-limit bookkeeping as well.
         if key not in ATTEMPTS and len(ATTEMPTS) >= 1000:
             return None, fail('当前使用人数较多，请稍后重试。', 503)

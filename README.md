@@ -53,7 +53,7 @@ flask --app webapp.app run --port 8765
 - Start：`gunicorn webapp.app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 240 --access-logfile /dev/null`
 - 健康检查：`/healthz`
 - 不需要配置任何邮箱授权码或数据库。
-- 必须保持 **1 个 worker / 1 个实例**：任务仅在进程内存，多个进程会导致任务查不到。最多同时保留 3 批结果、同时扫描 2 个任务、下载流 1 个。
+- 必须保持 **1 个 worker / 1 个实例**：任务仅在进程内存，多个进程会导致任务查不到。最多同时保留 3 批真实邮箱结果；另有独立的 3 批轻量示例容量，示例不会占用真实查找名额，也不会挤掉已有结果。同时扫描 2 个任务、下载流 1 个。
 
 Render 免费服务在空闲后会休眠，再次打开可能等待约一分钟；免费额度和流量限制以 [Render 官方说明](https://render.com/docs/free) 为准。海外服务器连接国内邮箱可能触发安全提醒，请在邮箱官网确认。国内访问速度依当地网络而异。
 

@@ -128,12 +128,63 @@ class ApiTests(unittest.TestCase):
         self.client.delete('/api/jobs/' + ident, headers=self.headers)
         self.make_demo()
 
-    def test_global_job_cap_is_enforced(self):
-        for _ in range(api.MAX_JOBS):
+    def test_demo_job_cap_is_enforced(self):
+        for _ in range(api.MAX_DEMO_JOBS):
             client = api.app.test_client()
             headers = {'X-CSRF-Token': client.get('/api/session').json['csrf_token']}
             self.make_demo(client, headers)
         self.assertEqual(self.client.post('/api/demo', headers=self.headers).status_code, 503)
+
+    def test_demo_capacity_does_not_reduce_real_capacity(self):
+        demo_ids = []
+        for _ in range(api.MAX_DEMO_JOBS):
+            client = api.app.test_client()
+            headers = {'X-CSRF-Token': client.get('/api/session').json['csrf_token']}
+            demo_ids.append(self.make_demo(client, headers))
+        result = dict(files=[dict(name='invoice.pdf', data=b'%PDF-test',
+                                  subject='invoice', sender='Example',
+                                  date='2026-10-01', source='附件')],
+                      scanned=1, matched=1, manual_links=[], warnings=[])
+        real_ids = []
+        with patch.object(api, 'scan_mailbox', return_value=result):
+            with patch.object(api.POOL, 'submit', side_effect=lambda fn, *args: fn(*args)):
+                for _ in range(api.MAX_JOBS):
+                    client = api.app.test_client()
+                    headers = {'X-CSRF-Token': client.get('/api/session').json['csrf_token']}
+                    response = client.post('/api/jobs', json=self.valid_form(), headers=headers)
+                    self.assertEqual(response.status_code, 202, response.json)
+                    real_ids.append(response.json['id'])
+                response = self.client.post('/api/jobs', json=self.valid_form(), headers=self.headers)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(len(api.JOBS), api.MAX_JOBS + api.MAX_DEMO_JOBS)
+        self.assertEqual(api.ACTIVE_SCANS, 0)
+        for ident in real_ids + demo_ids:
+            self.assertIn(ident, api.JOBS)
+            self.assertEqual(api.JOBS[ident]['status'], 'done')
+            self.assertFalse(api.JOBS[ident]['cancel'].is_set())
+            self.assertTrue(api.JOBS[ident]['files'])
+        for ident in real_ids:
+            self.assertEqual(api.JOBS[ident]['files'][0]['data'], b'%PDF-test')
+
+    def test_demo_cap_never_evicts_queued_real_job(self):
+        # Do not start a real worker or make any mailbox connection.
+        with patch.object(api, 'ACTIVE_SCANS', 0), patch.object(api.POOL, 'submit'):
+            response = self.client.post('/api/jobs', json=self.valid_form(), headers=self.headers)
+            self.assertEqual(response.status_code, 202)
+            real_id = response.json['id']
+            real_job = api.JOBS[real_id]
+            for _ in range(api.MAX_DEMO_JOBS):
+                client = api.app.test_client()
+                headers = {'X-CSRF-Token': client.get('/api/session').json['csrf_token']}
+                self.make_demo(client, headers)
+            other = api.app.test_client()
+            headers = {'X-CSRF-Token': other.get('/api/session').json['csrf_token']}
+            self.assertEqual(other.post('/api/demo', headers=headers).status_code, 503)
+            self.assertIs(api.JOBS[real_id], real_job)
+            self.assertEqual(real_job['status'], 'queued')
+            self.assertFalse(real_job['cancel'].is_set())
+            self.assertEqual(api.ACTIVE_SCANS, 1)
+            self.assertEqual(self.client.get('/api/jobs/' + real_id).status_code, 200)
 
     def test_rate_limit_survives_deleting_results(self):
         for _ in range(8):
