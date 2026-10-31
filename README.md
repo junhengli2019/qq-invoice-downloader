@@ -1,10 +1,18 @@
-# QQ 邮箱发票下载工具
+# 票夹 · QQ 邮箱发票整理
 
-一个面向普通 Windows 用户的本地小工具：从 QQ 邮箱中查找指定日期范围内的发票邮件，自动保存 PDF 附件和可直接下载的发票 PDF。
+提供网页版试用与原有 Windows 本机版：从 QQ 邮箱中查找指定日期范围内的发票邮件，自动保存 PDF 附件和可直接下载的发票 PDF。
 
-只使用 Python 标准库，不需要安装 Flask、FastAPI 或其他第三方软件包。邮箱与 IMAP 授权码只在本次运行的内存中使用，不会写入配置文件。
+原本机版只使用 Python 标准库；网页版由服务器运行，不要求访客安装任何依赖。邮箱与 IMAP 授权码仅用于本次整理，不写入配置文件。
 
-## 下载和使用
+## 网页试用版
+
+网页采用「填写邮箱 → 选择日期 → 下载发票」三步流程，无需安装软件。提供 QQ 官方授权码获取指南、无需连接邮箱的示例体验、ZIP 打包下载和主动清除。
+
+每位访客的任务独立，授权码只在任务处理期间保存在服务端内存。生成的文件最多保留 15 分钟，超时或主动清除后不可下载。只读收件箱，不发送、删除或标为已读。网页版使用 Flask / Gunicorn；原本机版仍仅依赖 Python 标准库。
+
+运行、部署和数据边界见 [网页部署说明](docs/public-trial-deployment.md)，设计范围见 [网页设计](docs/public-trial-design.md)。
+
+## 原本机版下载和使用
 
 1. 点击 GitHub 页面右上方的 `Code` → `Download ZIP`。
 2. 解压下载的 ZIP。
@@ -31,6 +39,8 @@ qq-invoice-downloader/
     ├── 代码/
     │   ├── download_invoices.py
     │   ├── invoice_web_app.py
+    │   ├── safe_download.py
+    │   ├── public_app.py / public_jobs.py / web/（网页版）
     │   └── README.md
     └── 双击此文件开始下载.bat
 ```
@@ -48,7 +58,7 @@ qq-invoice-downloader/
 - 同名 PDF 已存在时直接跳过，不覆盖也不创建重复副本。
 - 所有 PDF 都保存在同一个 `downloads/` 文件夹中。
 
-## 隐私与安全
+## 本机版隐私与安全
 
 - 网页服务只监听本机地址 `127.0.0.1:8765`。
 - 不使用 `.env`，不创建 `download_state.json`。
