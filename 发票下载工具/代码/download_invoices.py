@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import imaplib
+import time
+from contextvars import ContextVar
+from safe_download import fetch_public, resolve_public, UnsafeDownload
 import io
-import ipaddress
 import re
 import socket
 import ssl
 import sys
 import unicodedata
-import urllib.error
 import urllib.parse
-import urllib.request
 import zipfile
 from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
@@ -44,6 +44,31 @@ IMAP_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 
 class DownloadError(Exception):
     """可以安全展示给普通用户的下载错误。"""
+
+
+@dataclass(frozen=True)
+class DownloadLimits:
+    max_messages: int = 300
+    max_message_bytes: int = 12 * 1024 * 1024
+    max_output_bytes: int = 40 * 1024 * 1024
+    max_files: int = 100
+    max_links: int = 80
+    max_seconds: int = 180
+
+
+@dataclass
+class _Budget:
+    limits: DownloadLimits
+    started: float = field(default_factory=time.monotonic)
+    output_bytes: int = 0
+    links: int = 0
+
+    def check(self):
+        if time.monotonic() - self.started > self.limits.max_seconds:
+            raise DownloadError("整理超过 3 分钟，请缩小日期范围后重试。")
+
+
+_budget = ContextVar("invoice_budget", default=None)
 
 
 class LinkDownloadError(Exception):
@@ -91,6 +116,7 @@ class _Reporter:
             safe = safe.replace(secret, "******")
         safe = safe[:1000]
         self.result.logs.append(safe)
+        del self.result.logs[:-400]
         if self.callback:
             self.callback(safe)
 
@@ -143,13 +169,6 @@ class _InvoiceHTMLParser(HTMLParser):
         if self._href is not None:
             self._anchor_text.append(text)
 
-
-class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
-    max_redirections = 5
-
-    def redirect_request(self, request, file_pointer, code, message, headers, new_url):  # type: ignore[no-untyped-def]
-        _validate_remote_url(new_url)
-        return super().redirect_request(request, file_pointer, code, message, headers, new_url)
 
 
 def _decode_bytes(raw: bytes, declared_charset: Optional[str] = None) -> str:
@@ -290,6 +309,12 @@ def _save_pdf(
         result.skipped_existing += 1
         reporter.log("已存在，跳过：%s" % filename)
         return False
+    budget = _budget.get()
+    if budget:
+        budget.check()
+        if result.saved_pdfs >= budget.limits.max_files or budget.output_bytes + len(data) > budget.limits.max_output_bytes:
+            raise DownloadError("本次发票超过 100 份或 40 MB，请缩小日期范围后重试。")
+        budget.output_bytes += len(data)
     download_dir.mkdir(parents=True, exist_ok=True)
     created = False
     try:
@@ -355,67 +380,24 @@ def extract_invoice_links(html: str, content_base: str = "") -> List[Tuple[str, 
 
 
 def _validate_remote_url(url: str) -> None:
-    parsed = urllib.parse.urlsplit(url)
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
-        raise LinkDownloadError("不是可访问的 HTTP/HTTPS 下载地址")
-    if parsed.username or parsed.password:
-        raise LinkDownloadError("链接包含不安全的登录信息")
     try:
-        addresses = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
-    except OSError:
-        raise LinkDownloadError("无法解析下载服务器地址")
-    for address in addresses:
-        try:
-            ip = ipaddress.ip_address(address[4][0].split("%", 1)[0])
-        except ValueError:
-            raise LinkDownloadError("下载服务器返回了无效地址")
-        if not ip.is_global:
-            raise LinkDownloadError("为安全起见，不自动访问本机或内网地址")
-
-
-def _read_limited(response) -> bytes:  # type: ignore[no-untyped-def]
-    declared = response.headers.get("Content-Length")
-    if declared:
-        try:
-            if int(declared) > MAX_DOWNLOAD_BYTES:
-                raise LinkDownloadError("下载内容超过 50 MB 限制")
-        except ValueError:
-            pass
-    data = response.read(MAX_DOWNLOAD_BYTES + 1)
-    if len(data) > MAX_DOWNLOAD_BYTES:
-        raise LinkDownloadError("下载内容超过 50 MB 限制")
-    return data
+        resolve_public(url)
+    except UnsafeDownload as exc:
+        raise LinkDownloadError(str(exc)) from None
 
 
 def _fetch_link(url: str) -> Tuple[bytes, Message, str]:
-    _validate_remote_url(url)
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) QQ-Invoice-Downloader/1.0",
-            "Accept": "application/pdf, application/zip, text/html;q=0.8, */*;q=0.5",
-        },
-    )
-    opener = urllib.request.build_opener(
-        _SafeRedirectHandler(),
-        urllib.request.HTTPSHandler(context=ssl.create_default_context()),
-    )
+    budget = _budget.get()
+    limit = budget.limits.max_message_bytes if budget else MAX_DOWNLOAD_BYTES
+    if budget:
+        budget.check()
+        budget.links += 1
+        if budget.links > budget.limits.max_links:
+            raise DownloadError("下载链接较多，请缩小日期范围后重试。")
     try:
-        with opener.open(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
-            final_url = response.geturl()
-            _validate_remote_url(final_url)
-            return _read_limited(response), response.headers, final_url
-    except urllib.error.HTTPError as exc:
-        raise LinkDownloadError("下载服务器返回 HTTP %s" % exc.code)
-    except urllib.error.URLError as exc:
-        reason = exc.reason
-        if isinstance(reason, (TimeoutError, socket.timeout)):
-            raise LinkDownloadError("连接下载服务器超时")
-        if isinstance(reason, ssl.SSLError):
-            raise LinkDownloadError("下载服务器的安全证书校验失败")
-        raise LinkDownloadError("无法连接下载服务器")
-    except (TimeoutError, socket.timeout):
-        raise LinkDownloadError("连接下载服务器超时")
+        return fetch_public(url, limit, DOWNLOAD_TIMEOUT_SECONDS)
+    except UnsafeDownload as exc:
+        raise LinkDownloadError(str(exc)) from None
 
 
 def _response_filename(headers: Message, final_url: str, fallback: str) -> str:
@@ -471,8 +453,16 @@ def _save_zip_pdfs(
                 result.failed_items += 1
                 reporter.log("ZIP 中的 PDF 过大，已跳过：%s" % _short_text(info.filename))
                 continue
+            budget = _budget.get()
+            if budget:
+                budget.check()
+                if info.file_size > budget.limits.max_message_bytes or total_unzipped > budget.limits.max_output_bytes:
+                    raise DownloadError("压缩包内的发票过大，请在原邮件中手动下载。")
             try:
-                pdf_data = archive.read(info)
+                with archive.open(info) as entry:
+                    pdf_data = entry.read((budget.limits.max_message_bytes if budget else MAX_DOWNLOAD_BYTES) + 1)
+                if len(pdf_data) > (budget.limits.max_message_bytes if budget else MAX_DOWNLOAD_BYTES):
+                    raise DownloadError("压缩包内的发票过大，请在原邮件中手动下载。")
                 if not _is_pdf(pdf_data):
                     raise ValueError("文件内容不是 PDF")
                 filename = build_pdf_filename(mail_date, sender, info.filename)
@@ -645,6 +635,7 @@ def download_invoices(
     end_date: date,
     project_root: Path,
     progress_callback: Optional[Callable[[str], None]] = None,
+    limits: Optional[DownloadLimits] = None,
 ) -> DownloadResult:
     """下载发票并返回统计结果；授权码不会进入日志或磁盘。"""
     if not re.fullmatch(r"[^@\s]{1,64}@(qq\.com|vip\.qq\.com|foxmail\.com)", email_address, re.IGNORECASE):
@@ -666,6 +657,8 @@ def download_invoices(
     mailbox = None
     logged_in = False
 
+    budget = _Budget(limits) if limits else None
+    token = _budget.set(budget)
     reporter.log("正在连接 QQ 邮箱 IMAP 服务……")
     try:
         try:
@@ -692,13 +685,31 @@ def download_invoices(
         message_ids = search_data[0].split() if search_data and search_data[0] else []
         reporter.log("日期范围内找到 %d 封邮件，开始检查是否包含“发票”。" % len(message_ids))
 
+        if limits and len(message_ids) > limits.max_messages:
+            raise DownloadError("日期范围内邮件超过 300 封，请缩小日期范围后重试。")
         for message_id in message_ids:
+            if budget:
+                budget.check()
+            reporter.log("正在检查第 %d/%d 封邮件。" % (result.scanned_messages + 1, len(message_ids)))
             result.scanned_messages += 1
             try:
-                status, fetch_data = mailbox.fetch(message_id, "(RFC822)")
+                if limits:
+                    size_status, size_data = mailbox.fetch(message_id, "(RFC822.SIZE)")
+                    size_bytes = b" ".join(part for part in (size_data or []) if isinstance(part, bytes))
+                    size_match = re.search(rb"RFC822.SIZE\s+(\d+)", size_bytes)
+                    if size_status != "OK" or not size_match:
+                        raise ValueError("无法确认邮件大小")
+                    if int(size_match.group(1)) > limits.max_message_bytes:
+                        raise DownloadError("有邮件超过 12 MB，请缩小日期范围或在原邮箱下载。")
+                    query = "(BODY.PEEK[]<0.%d>)" % (limits.max_message_bytes + 1)
+                else:
+                    query = "(BODY.PEEK[])"
+                status, fetch_data = mailbox.fetch(message_id, query)
                 raw_message = _fetch_message_bytes(fetch_data)
                 if status != "OK" or raw_message is None:
                     raise ValueError("邮件内容为空")
+                if limits and len(raw_message) > limits.max_message_bytes:
+                    raise DownloadError("有邮件超过 12 MB，请在原邮箱下载。")
                 message = BytesParser(policy=policy.default).parsebytes(raw_message)
                 _process_message(
                     message,
@@ -710,6 +721,8 @@ def download_invoices(
                     manual_records,
                     manual_seen,
                 )
+            except DownloadError:
+                raise
             except Exception as exc:
                 result.failed_items += 1
                 reporter.log("一封邮件处理失败，已继续下一封（%s）。" % type(exc).__name__)
@@ -727,6 +740,7 @@ def download_invoices(
     except imaplib.IMAP4.error as exc:
         raise DownloadError("QQ 邮箱返回错误，请稍后重试。") from exc
     finally:
+        _budget.reset(token)
         if mailbox is not None:
             try:
                 if logged_in:

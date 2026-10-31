@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env*
+.DS_Store
+work/
+outputs/
+downloads/
+需要手动下载的发票链接.txt

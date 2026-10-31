@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-31",
+  "unit_integration_tests": 11,
+  "unit_result": "passed",
+  "browser_checks": {
+    "authorizationGuideAndKeyboard": true,
+    "publicDemoZipDownload": true,
+    "resultSurvivesReload": true,
+    "independentVisitors": true,
+    "mobile320And390NoOverflow": true,
+    "deleteRevokesDownload": true,
+    "authFailureRecovery": true,
+    "formToMailboxCoreToZip": true,
+    "noBrowserErrors": true
+  },
+  "browser_mailbox": "synthetic IMAP fixture, actual parsing and ZIP generation",
+  "local_qq_tls": "reachable",
+  "real_account_login_tested": false,
+  "public_deployment": "pending workspace selection"
+}

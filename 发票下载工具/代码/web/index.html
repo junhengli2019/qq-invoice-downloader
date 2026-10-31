@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="按月份整理 QQ 邮箱里的发票，打包下载。不用安装软件，提供清楚的邮箱授权指南。">
+  <title>票夹 · 邮箱里的发票，一起收好</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="票夹首页"><span class="folder-mark" aria-hidden="true"></span>票夹<span class="brand-description">QQ 邮箱发票整理</span></a>
+    <button class="text-button help-trigger" type="button">授权码怎么找？<span aria-hidden="true"> ↗</span></button>
+  </header>
+  <main>
+    <section class="intro">
+      <span class="eyebrow">在线试用 · 无需安装</span>
+      <h1>邮箱里的发票，<br class="mobile-break">一起收好。</h1>
+      <p>选一个月份，把散落在邮件里的 PDF 发票打包带走。</p>
+    </section>
+    <div class="workspace">
+      <ol class="steps" aria-label="整理步骤">
+        <li class="active" aria-current="step" data-step="1"><span>1</span>填写邮箱</li>
+        <li data-step="2"><span>2</span>选择日期</li>
+        <li data-step="3"><span>3</span>下载发票</li>
+      </ol>
+      <div class="sheet">
+        <div id="notice" role="status" class="notice" hidden></div>
+        <div id="error" role="alert" class="error" hidden></div>
+        <section id="step-1" class="step-panel" aria-labelledby="mail-heading">
+          <div class="step-caption">第一步</div>
+          <h2 id="mail-heading" tabindex="-1">准备好你的 QQ 邮箱</h2>
+          <p class="supporting">第一次使用？先跟着授权说明获取授权码，通常只需几分钟。</p>
+          <div class="setup-grid">
+            <form id="mail-form">
+              <label for="email">QQ 邮箱地址</label>
+              <input id="email" name="email" type="email" placeholder="例如：123456@qq.com" autocomplete="email" maxlength="90" required>
+              <div class="label-row"><label for="code">邮箱授权码</label><button type="button" id="show-code" class="text-button" aria-controls="code" aria-pressed="false">显示</button></div>
+              <input id="code" name="authorization_code" type="password" placeholder="粘贴 QQ 邮箱生成的 16 位字母" autocomplete="off" spellcheck="false" maxlength="40" required aria-describedby="code-hint">
+              <p class="field-hint" id="code-hint">这里填授权码，不是 QQ 登录密码。<br><button type="button" class="text-button help-trigger">不会获取？打开三步说明</button></p>
+              <label class="consent"><input id="consent" type="checkbox" required><span>我同意网站在本次整理中临时连接邮箱，读取所选日期内的收件箱邮件来查找发票。</span></label>
+              <p class="privacy-line">云端临时处理，不向 AI 发送内容。工具不会发送、删除邮件或标记已读。</p>
+              <button class="primary" id="next-button" type="submit" disabled>下一步：选择日期 <span aria-hidden="true">→</span></button>
+              <button class="demo-button" id="demo" type="button" disabled>先用示例体验 <span>不连接邮箱</span></button>
+            </form>
+            <aside class="guide-preview" aria-labelledby="guide-preview-heading">
+              <div class="guide-heading"><span class="guide-symbol" aria-hidden="true">?</span><h3 id="guide-preview-heading">授权码，跟着这 3 步找</h3></div>
+              <ol class="guide-list">
+                <li><span>1</span><div><strong>打开 QQ 邮箱网页</strong><p>登录自己的邮箱，建议在电脑上操作。</p><a href="https://mail.qq.com/" target="_blank" rel="noopener noreferrer" class="inline-link">打开 QQ 邮箱 ↗</a></div></li>
+                <li><span>2</span><div><strong>找到「安全设置」</strong><p>右上角头像 → 设置 → 账号与安全 → 安全设置。</p></div></li>
+                <li><span>3</span><div><strong>开启服务，生成授权码</strong><p>开启 IMAP/SMTP，按 QQ 提示验证身份，复制 16 位授权码，粘贴到授权码输入框。</p></div></li>
+              </ol>
+              <button type="button" class="text-button help-trigger guide-more">找不到入口？查看完整说明 →</button>
+            </aside>
+          </div>
+        </section>
+        <section id="step-2" class="step-panel" aria-labelledby="date-heading" hidden>
+          <div class="step-caption">第二步</div>
+          <h2 id="date-heading" tabindex="-1">想整理哪段时间的发票？</h2>
+          <p class="supporting">邮箱：<strong id="mail-summary"></strong> · 点击开始后连接邮箱。</p>
+          <form id="date-form">
+            <div class="date-presets" aria-label="快捷日期">
+              <button type="button" data-range="this" class="selected" aria-pressed="true">本月</button>
+              <button type="button" data-range="last" aria-pressed="false">上个月</button>
+              <button type="button" data-range="custom" aria-pressed="false">自己选日期</button>
+            </div>
+            <div class="date-fields"><div><label for="start-date">从哪天开始</label><input id="start-date" type="date" required></div><span aria-hidden="true">—</span><div><label for="end-date">到哪天结束</label><input id="end-date" type="date" required></div></div>
+            <p class="field-hint">包含开始和结束当天。试用版每次最多 31 天、300 封邮件。</p>
+            <div class="scope-note"><span aria-hidden="true">✓</span><p>只检查收件箱。提取发票 PDF 和可直接下载的发票链接；需要扫码或登录的链接会放入清单，方便你稍后处理。</p></div>
+            <p class="privacy-line">授权码仅在本次任务中使用。文件完成后最多保留 15 分钟，也可以随时清除。</p>
+            <div class="actions"><button type="button" id="back" class="secondary">上一步</button><button type="submit" id="start-button" class="primary">开始整理发票 <span aria-hidden="true">→</span></button></div>
+          </form>
+        </section>
+        <section id="step-3" class="step-panel" aria-labelledby="result-heading" hidden>
+          <div class="result-heading-row"><span class="step-caption">第三步</span><span id="demo-label" class="demo-label" hidden>示例体验 · 未连接邮箱</span></div>
+          <h2 id="result-heading" tabindex="-1">正在整理发票</h2>
+          <div id="running" aria-live="polite">
+            <div class="progress-visual" aria-hidden="true"><span class="paper paper-back"></span><span class="paper paper-front"></span><span class="folder-body"></span></div>
+            <p id="progress-message" class="progress-message">正在连接 QQ 邮箱…</p>
+            <progress id="progress" aria-label="发票整理进度"></progress>
+            <p class="field-hint">请保持页面打开。邮件较多时可能需要 1–3 分钟。</p>
+            <button type="button" class="text-button clear-trigger">停止并清除本次任务</button>
+          </div>
+          <div id="result" hidden>
+            <p class="supporting" id="result-message" aria-live="polite"></p>
+            <div class="result-counts"><div><strong id="pdf-count">0</strong><span>份 PDF 发票</span></div><div><strong id="mail-count">0</strong><span>封邮件已检查</span></div></div>
+            <div id="result-warning" class="notice" hidden></div>
+            <details id="file-details"><summary>查看整理的文件</summary><ul id="file-list"></ul></details>
+            <a href="/api/download" class="primary download" id="download" download>下载全部发票（ZIP）<span aria-hidden="true">↓</span></a>
+            <p class="retention" id="retention"></p>
+            <div class="result-actions"><button type="button" class="secondary" id="again">再整理一次</button><button type="button" class="text-button clear-trigger">立即清除本次文件</button></div>
+            <p class="field-hint">手机通常保存在“下载”或“文件”中。ZIP 解压后即可查看 PDF。</p>
+          </div>
+          <div id="failed" hidden><p class="supporting" id="failure-message"></p><button type="button" class="primary" id="retry">重新填写邮箱</button><button type="button" class="text-button help-trigger">查看授权码帮助</button></div>
+        </section>
+      </div>
+      <p class="under-sheet">授权码不写入文件或日志 · 下载结果按访客隔离 · 文件到期自动清除</p>
+    </div>
+    <footer><span>票夹 · QQ 邮箱发票整理试用版</span><button type="button" id="privacy-open" class="text-button">数据如何处理</button></footer>
+  </main>
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-top"><span class="eyebrow">第一次使用指南</span><button type="button" class="close-dialog" aria-label="关闭授权指南">×</button></div>
+    <h2 id="help-title">找到邮箱授权码，<br>再回来粘贴。</h2>
+    <p class="supporting">授权码是 QQ 邮箱给第三方工具的专用密码。你的 QQ 登录密码只在 QQ 官方页面输入。</p>
+    <ol class="full-guide">
+      <li><span>1</span><div><h3>在 QQ 邮箱打开设置</h3><p>登录网页版邮箱，点右上角头像，找到「设置」。</p><a href="https://mail.qq.com/" target="_blank" rel="noopener noreferrer" class="secondary external-button">打开 QQ 邮箱 ↗</a></div></li>
+      <li><span>2</span><div><h3>开启 IMAP/SMTP 服务</h3><p>进入「账号与安全」→「安全设置」，找到邮箱的第三方服务并开启。已经开启的，可以直接生成授权码。</p><div class="path-guide">设置 <b>›</b> 账号与安全 <b>›</b> 安全设置</div><details><summary>我的邮箱是旧版，找不到这些选项</summary><p>试试页面上方「设置」→「帐户」，往下找到「POP3/IMAP/SMTP…服务」。如果手机页面没有这些选项，建议在电脑浏览器操作。</p></details></div></li>
+      <li><span>3</span><div><h3>生成、复制，回到这里粘贴</h3><p>点「生成授权码」，按 QQ 页面提示验证身份。复制生成的 <strong>16 位字母</strong>，回到票夹粘贴，不要填 QQ 密码。</p></div></li>
+    </ol>
+    <p class="guide-footnote">不再使用时，可到 QQ 邮箱「设置 → 账号与安全 → 设备管理 → 授权码管理」让该授权码失效。授权码本身具备邮箱访问权限，请妥善保管。</p>
+    <a href="https://help.mail.qq.com/detail/106/985" target="_blank" rel="noopener noreferrer" class="inline-link">查看 QQ 邮箱官方说明 ↗</a>
+    <button type="button" class="primary close-dialog">我知道了，返回填写</button>
+  </dialog>
+  <dialog id="privacy-dialog" aria-labelledby="privacy-title">
+    <div class="dialog-top"><span class="eyebrow">数据处理说明</span><button type="button" class="close-dialog" aria-label="关闭数据说明">×</button></div>
+    <h2 id="privacy-title">只为这一次整理</h2>
+    <ul class="privacy-list"><li>点击「开始整理」后，邮箱地址和授权码通过加密连接交给本站服务器，用于登录 QQ 邮箱。它们不写入配置、访问日志或 Cookie；任务结束或停止后结束处理进程。</li><li>工具只读取所选日期的收件箱邮件，不发送或删除邮件、不标为已读，不将内容发给 AI。</li><li>提取的 PDF 和手动下载链接暂存在独立任务目录。完成后最多保留 15 分钟，或点击「立即清除」删除。期间请及时下载。</li><li>浏览器 Cookie 仅用于找回本次整理结果。不同访客互不共享；使用同一浏览器的人可能看到你的结果，请用完清除。</li><li>试用服务重启或休眠时，任务可能中断、临时文件可能提前失效。本站不是长期发票存储空间。</li><li>每次最多 31 天、300 封邮件、100 份 PDF、40 MB 文件；每个网络地址每小时最多 8 次开始操作。同一时间最多两项任务，繁忙时请稍后再试。</li></ul>
+    <button type="button" class="primary close-dialog">知道了</button>
+  </dialog>
+  <noscript><p class="error">请允许浏览器运行 JavaScript，才能连接邮箱和下载发票。</p></noscript>
+</body>
+</html>
