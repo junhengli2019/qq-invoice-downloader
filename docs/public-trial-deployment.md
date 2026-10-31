@@ -1,5 +1,9 @@
 # 网页试用版运行与验证
 
+公开试用地址：https://piao-jia-jh.onrender.com
+
+Render 服务：`srv-dbis3ooae00c73chtheg`；部署分支：`main`。
+
 ## 运行
 
 ```sh
@@ -16,6 +20,7 @@ python3 -m venv .venv
 
 - 类型：Web service；runtime：Python；region：Singapore。
 - 方案：Free，复用用户确认的工作区。不新增数据库或持久磁盘。
+- 环境变量：`GUNICORN_CMD_ARGS` 必须设为空字符串，关闭 Render 默认的 `--preload`；否则后台清理和连接检查线程不会进入实际服务进程。启动配置会拒绝预加载或多 worker，避免静默失效。来源：https://render.com/docs/environment-variables 。
 - 构建：`pip install -r requirements.txt`。
 - 启动：`gunicorn -c gunicorn.conf.py 'public_app:create_app()'`。
 - 健康检查：`/healthz` 返回当前应用版本及启动时的 QQ TLS 连通结果。就绪本身不依赖 QQ；临时外部网络故障不会反复重启网站。
@@ -40,11 +45,11 @@ python3 -m venv .venv
 python3 '发票下载工具/代码/download_invoices.py' --self-test
 ```
 
-11 项单元/集成测试：模拟 IMAP 邮件 → 原下载核心 → ZIP；两访客隔离；Cookie、同源和 CSRF；Host 与大小限制；授权失败；过期删除；中断子进程；全站并发；只读与 PEEK；内网与重定向；DNS 固定连接；大邮件提前拒绝。
+13 项单元/集成测试：模拟 IMAP 邮件 → 原下载核心 → ZIP；两访客隔离；Cookie、同源和 CSRF；Host 与大小限制；授权失败；过期删除；中断子进程；全站并发；只读与 PEEK；内网与重定向；DNS 固定连接；大邮件提前拒绝；以真实 Gunicorn 进程验证 Render 默认预加载会被拒绝；无新请求时后台自动删除过期文件。
 
 浏览器检查用 Python Playwright + 本机 Chrome，先启动上述 8766 服务和 `tests/serve_fixture.py` 的 8767 模拟邮箱服务，再执行 `python3 tests/browser_flow.py`。模拟邮箱服务只绑定本机且不被生产应用导入。检查真实表单操作、授权失败恢复、ZIP 下载、刷新、两浏览器隔离、删除、320/390px 手机页面、键盘关闭指南、浏览器脚本错误。
 
-本地已验证到 QQ 官方 IMAP 的 TLS 连接。浏览器完整收信流程使用的是合成邮件，不能当作真实邮箱认证的证据。发布后还须检查公网及云端 QQ 连通性；首次真实账号验收应由用户在网页里自行填入授权码，不通过聊天或代码传递。
+本地已验证到 QQ 官方 IMAP 的 TLS 连接。浏览器完整收信流程使用的是合成邮件，不能当作真实邮箱认证的证据。公开地址已检查：匿名访问、示例 ZIP 下载、刷新、访客隔离、手机页面、主动清除、Secure Cookie、CSRF 均通过；云端已确认 QQ IMAP/TLS 可连通。可用 `python3 tests/browser_public.py` 重现公网检查（仅示例，无邮箱凭证）。首次真实账号验收应由用户在网页里自行填入授权码，不通过聊天或代码传递。
 
 ## 授权引导来源
 

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-31",
-  "unit_integration_tests": 11,
+  "unit_integration_tests": 13,
   "unit_result": "passed",
   "browser_checks": {
     "authorizationGuideAndKeyboard": true,
@@ -16,5 +16,33 @@
   "browser_mailbox": "synthetic IMAP fixture, actual parsing and ZIP generation",
   "local_qq_tls": "reachable",
   "real_account_login_tested": false,
-  "public_deployment": "pending workspace selection"
+  "public_deployment": "live",
+  "url": "https://piao-jia-jh.onrender.com",
+  "render_service": "srv-dbis3ooae00c73chtheg",
+  "verified_deploy": "dep-dbis5hh42hec73bc9qv0",
+  "public_checks": {
+    "url": "https://piao-jia-jh.onrender.com",
+    "anonymous": true,
+    "checks": {
+      "publicWithoutLogin": true,
+      "authorizationGuide": true,
+      "cloudProcessAndZipDownload": true,
+      "refreshRetainsResult": true,
+      "visitorIsolation": true,
+      "mobileNoOverflow": true,
+      "secureCookie": true,
+      "deleteRevokesDownload": true,
+      "csrfRequired": true,
+      "noBrowserErrors": true
+    },
+    "real_account_login_tested": false,
+    "health": {
+      "qq_connection": "reachable",
+      "status": "ok",
+      "version": "0.2.0-public"
+    },
+    "success": true,
+    "browserErrors": []
+  },
+  "deployment_fix": "Override Render GUNICORN_CMD_ARGS with empty string; reject preload/multiple workers at startup"
 }

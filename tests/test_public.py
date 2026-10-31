@@ -1,6 +1,8 @@
 import io
 import json
 import socket
+import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -96,6 +98,25 @@ class PublicTests(unittest.TestCase):
         process=session.job.process
         self.assertTrue(process.is_alive());self.post('/api/clear')
         self.assertFalse(process.is_alive());self.assertFalse(list(self.jobs.root.iterdir()))
+
+    def test_expired_files_are_deleted_without_another_request(self):
+        cleaner=Jobs(Path(self.temp.name)/'background',target=run_fixture,start_cleanup=True)
+        try:
+            _,session=cleaner.session(None,create=True)
+            cleaner.start(session,'127.0.0.1',demo=True)
+            deadline=time.monotonic()+10
+            while cleaner.snapshot(session)['state']=='running' and time.monotonic()<deadline:
+                time.sleep(.02)
+            self.assertEqual(cleaner.snapshot(session)['state'],'success')
+            root=session.job.root
+            session.job.finished-=RESULT_TTL+1
+            # No snapshot, session lookup or HTTP request drives this cleanup.
+            deadline=time.monotonic()+4
+            while root.exists() and time.monotonic()<deadline:
+                time.sleep(.05)
+            self.assertFalse(root.exists())
+        finally:
+            cleaner.close()
     def test_global_capacity_and_duplicate_start(self):
         self.jobs.target=run_slow;self.assertEqual(self.post('/api/demo').status_code,202)
         self.assertEqual(self.post('/api/demo').status_code,429)
@@ -106,6 +127,12 @@ class PublicTests(unittest.TestCase):
 
 
 class CoreTests(unittest.TestCase):
+    def test_render_preload_is_rejected_before_serving(self):
+        result=subprocess.run([sys.executable,'-m','gunicorn','-c','gunicorn.conf.py','public_app:create_app()'],
+            cwd=ROOT,env={**os.environ,'GUNICORN_CMD_ARGS':'--preload --bind=127.0.0.1:0'},capture_output=True,text=True,timeout=10)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('one worker and no preload',result.stderr)
+
     def test_readonly_peek_and_limits(self):
         with tempfile.TemporaryDirectory() as path, patch.object(core.imaplib,'IMAP4_SSL',FakeMailbox):
             result=core.download_invoices('sample@qq.com',SECRET,date.today(),date.today(),Path(path),limits=core.DownloadLimits())
