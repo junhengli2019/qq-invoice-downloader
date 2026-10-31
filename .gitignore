@@ -6,3 +6,4 @@ __pycache__/
 downloads/
 需要手动下载的发票链接.txt
 .pytest_cache/
+.venv-local/

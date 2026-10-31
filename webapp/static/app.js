@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const state = { csrf: null, sessionPromise: null, job: null, files: [], selected: new Set(), pollTimer: null, pollVersion: 0, pollingErrors: 0, busy: false, downloading: false, demo: false, expiresAt: null };
+  const state = { runtimeMode: null, csrf: null, sessionPromise: null, job: null, files: [], selected: new Set(), pollTimer: null, pollVersion: 0, pollingErrors: 0, busy: false, downloading: false, demo: false, expiresAt: null };
   let toastTimer;
   const formatBytes = (value) => value >= 1048576 ? `${(value / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(value / 1024))} KB`;
   const localDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -43,6 +43,30 @@
   function setBusy(busy) {
     state.busy = busy; $('form-fields').disabled = busy; $('demo-button').disabled = busy;
   }
+  function applyRuntimeMode(mode) {
+    state.runtimeMode = mode === 'local' ? 'local' : mode === 'hosted' ? 'hosted' : null;
+    $('runtime-info').hidden = !state.runtimeMode;
+    const local = state.runtimeMode === 'local';
+    if (!state.runtimeMode) return;
+    $('runtime-badge').textContent = local ? '本机运行 · 发票不上传云端' : '在线服务 · 临时处理';
+    $('runtime-detail').textContent = local ? '仅当前电脑可用。请保持启动窗口打开。' : '支持电脑与手机，结果保留 30 分钟。';
+    $('page-intro').textContent = local ? '连接邮箱，找到发票，下载到这台电脑。' : '连接邮箱，找到发票，打包下载。电脑、手机都能用。';
+    $('device-support').textContent = local ? '直接保存到这台电脑' : '支持电脑与手机保存';
+    $('consent-copy').textContent = local
+      ? '我同意本机程序使用授权码连接邮箱，并临时读取、处理邮件与发票。'
+      : '我同意本次将邮箱地址和授权码交给网站服务器连接邮箱，并在服务器内存中临时处理发票。';
+    $('privacy-location').textContent = local
+      ? '当前由这台电脑运行。邮箱地址和授权码从浏览器传给本机服务，发票在本机内存中处理，不上传到收票夹云端。这个本机地址不能直接在另一台手机或电脑打开。'
+      : '当前使用在线服务。邮箱地址和授权码通过 HTTPS 发送到网站服务器，用于连接 QQ 或 163，发票由服务器临时处理。';
+    $('privacy-scope').textContent = local
+      ? '请只连接你有权使用的邮箱。程序寻找候选 PDF，不验证发票真伪，也不承诺识别所有发票。本机程序不主动记录授权码、邮件正文或发票内容。'
+      : '请只连接你有权使用的邮箱。程序寻找候选 PDF，不验证发票真伪，也不承诺识别所有发票。应用不主动记录授权码、邮件正文或发票内容；部署平台可能另行保留基础访问日志。';
+  }
+  function connectionHelp() {
+    if (state.runtimeMode === 'local') return '请检查收票夹启动窗口是否还在运行；若已关闭，请重新启动后刷新页面。';
+    if (state.runtimeMode === 'hosted') return '请检查网络后重试；在线服务首次启动可能需要约一分钟。';
+    return '请检查网络；若使用本机版，请确认启动窗口仍在运行，再刷新页面。';
+  }
   async function request(path, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options.download ? 120000 : 45000);
@@ -54,13 +78,13 @@
       const response = await fetch(path, { method, headers, credentials: 'same-origin', cache: 'no-store', signal: controller.signal, ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}) });
       if (!response.ok) {
         let details; try { details = await response.json(); } catch { /* Deployment proxy can return HTML. */ }
-        const error = new Error(details?.error || '服务暂时没有响应，请稍后重试。免费服务器首次启动可能需要约一分钟。');
+        const error = new Error(details?.error || `服务暂时没有响应。${connectionHelp()}`);
         error.status = response.status; throw error;
       }
       return options.download ? response.blob() : response.json();
     } catch (error) {
-      if (error.name === 'AbortError') throw new Error('等待服务器响应超时，请检查网络后重试。免费服务器首次启动可能需要约一分钟。');
-      if (error instanceof TypeError) throw new Error('暂时无法连接服务器，请检查网络连接后重试。');
+      if (error.name === 'AbortError') throw new Error(`等待服务响应超时。${connectionHelp()}`);
+      if (error instanceof TypeError) throw new Error(`暂时无法连接服务。${connectionHelp()}`);
       throw error;
     } finally { clearTimeout(timeout); }
   }
@@ -70,6 +94,7 @@
       state.sessionPromise = request('/api/session').then((data) => {
         if (!data.csrf_token) throw new Error('页面初始化失败，请刷新后重试。');
         state.csrf = data.csrf_token;
+        applyRuntimeMode(data.runtime_mode);
         if (data.active_job_id && !state.job) state.job = data.active_job_id;
       }).finally(() => { state.sessionPromise = null; });
     }

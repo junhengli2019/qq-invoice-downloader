@@ -14,3 +14,6 @@
 @media(max-width:370px){.step strong{font-size:11px}.step-number{width:25px;height:25px;font-size:11px}.step{gap:4px}.provider-text strong{font-size:13px}.provider-card{padding:14px 9px}.date-fields input{padding:0 3px;font-size:14px}.download-bar .button{width:100%}.page-heading h1{font-size:24px}}
 
 .file-meta>span{min-width:0;max-width:100%;overflow-wrap:anywhere}.file-info{overflow-wrap:anywhere}.notice{overflow-wrap:anywhere}
+
+/* Keep the actual processing location visible without adding another onboarding step. */
+.runtime-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-12px 0 24px;color:#71819a;font-size:12px;line-height:1.8}.runtime-badge{display:inline-flex;align-items:center;gap:7px;background:#edf7f1;border:1px solid #d8eadf;border-radius:20px;padding:4px 11px;color:#327555;font-weight:550}.runtime-badge:before{content:"";width:6px;height:6px;background:#3b976d;border-radius:50%;flex-shrink:0}@media(max-width:680px){.runtime-info{margin:-8px 0 22px;gap:7px;font-size:12px}.runtime-info>span:last-child{display:block;width:100%}.runtime-badge{padding:4px 10px}}

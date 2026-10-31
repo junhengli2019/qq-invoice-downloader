@@ -20,12 +20,15 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from webapp.mailbox import MailboxError, scan_mailbox
 
+LOCAL_ONLY = os.environ.get('INVOICE_LOCAL_ONLY') == '1'
+HOSTED_PROXY = bool(os.environ.get('RENDER')) and not LOCAL_ONLY
 app = Flask(__name__, static_folder=None)
 app.config.update(SECRET_KEY=secrets.token_hex(32), MAX_CONTENT_LENGTH=8192,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
-                  SESSION_COOKIE_SECURE=bool(os.environ.get('RENDER')),
+                  SESSION_COOKIE_SECURE=HOSTED_PROXY,
+                  LOCAL_ONLY=LOCAL_ONLY,
                   PERMANENT_SESSION_LIFETIME=timedelta(hours=2))
-if os.environ.get('RENDER'):
+if HOSTED_PROXY:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 STATIC = Path(__file__).parent / 'static'
 TTL = 1800
@@ -69,6 +72,15 @@ threading.Thread(target=reaper, daemon=True, name='expiry').start()
 
 @app.before_request
 def protect():
+    if app.config['LOCAL_ONLY']:
+        # DNS rebinding / accidental proxy exposure: accept only a loopback peer
+        # AND a loopback Host. Ignore forwarded headers in the local launcher.
+        try:
+            host = urlsplit(request.host_url).hostname
+        except ValueError:
+            host = None
+        if host not in {'127.0.0.1', 'localhost', '::1'} or request.remote_addr not in {'127.0.0.1', '::1'}:
+            return fail('本机模式仅允许在这台电脑打开 127.0.0.1 地址。', 403)
     if request.path.startswith('/api/'):
         cleanup()
         if request.method in {'POST', 'DELETE', 'PUT', 'PATCH'}:
@@ -91,7 +103,7 @@ def headers(response):
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
-    if os.environ.get('RENDER'):
+    if HOSTED_PROXY:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000'
     return response
 
@@ -131,7 +143,8 @@ def browser_session():
         session.permanent = True
     with LOCK:
         active = next((j['id'] for j in JOBS.values() if j['owner'] == session['sid']), None)
-    return jsonify(csrf_token=session['csrf'], active_job_id=active)
+    return jsonify(csrf_token=session['csrf'], active_job_id=active,
+                   runtime_mode='local' if app.config['LOCAL_ONLY'] else 'hosted')
 
 
 def json_object():
